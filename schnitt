@@ -1,0 +1,72 @@
+#!/bin/bash
+# Podcast für MP3-Player aufbereiten und löschen
+# 2012-06-18 WB
+
+# das Zielverzeichnis auf dem MP3-Player
+PLAYER=/media/MP3_WB/Podcast
+#PLAYER=/tmp/media
+
+##
+    RED=`echo -e '\033[31m'`
+  GREEN=`echo -e '\033[32m'`  
+DYELLOW=`echo -e '\033[33m'`  
+   BLUE=`echo -e '\033[34m'`  
+  GBLUE=`echo -e '\033[35m'`
+ NORMAL=`echo -e '\033[0m'`
+ 
+  LGREY=`echo -e '\033[37m'`
+  DGREY=`echo -e '\033[1;30m'`
+##
+
+ANSAGE=`mktemp --suffix=.wav`
+
+if [ ! -d $PLAYER ] ; then
+    echo ${RED}ABBRUCH: Verzeichnis $PLAYER nicht gefunden.${NORMAL}
+    exit -1
+fi
+
+
+for file in $* ; do
+    if [ -r $file ] ; then
+        name=`basename $file .mp3`  
+        # genügend Platz vorhanden?
+        KBISFREE=`df -k $PLAYER |grep / |awk '{print $4 }'`
+        #Was brauchen wir? ca +100k für die Ansage
+        let "FILESIZE = $(stat -c%s "$file") / 1024"
+        let "FILESIZE += 100"
+
+        if [ $KBISFREE -lt $FILESIZE ] ; then
+            echo ${RED}WARNUNG: Nicht genügend Platz für $file.${NORMAL}
+        else
+            folder=$PLAYER/$name 
+            mkdir $folder
+
+            if [ ! -d $folder ] ; then
+                echo ${RED}ABBRUCH: Verzeichnis $folder nicht angelegt.${NORMAL}
+                exit -1
+            fi
+
+            # Ansage
+            datum=`LC_TIME=de_DE.UTF8 date -r "$file" +"%A, %d. %B %Y"`
+            name1=${name//_/ }
+            title=`mid3v2 -l $file | grep -e TIT2 | cut -d= -f2-`
+            minuten=`mp3info -p "%m" $file`
+            dauer="Dauer etwa $minuten Minuten."
+            echo ${name1//-/ } . vom $datum . $title . $dauer | \
+             espeak --stdin -v german-mbrola-5  -s 100 -w $ANSAGE 2>>/dev/null
+            lame --silent $ANSAGE $folder/$name-000.mp3
+
+            # Schneiden erst wenn länger als 8 Minuten
+            if [[ $minuten -gt 8 ]] ; then
+                # Split und löschen
+                mp3splt -1 -t 3.2 -o @f-@n -d $folder $file \
+                 && rm $file
+            else
+                mv $file $folder 
+            fi
+        fi
+    else
+            echo ${RED}WARNUNG: $file nicht lesbar.${NORMAL}
+    fi
+done
+rm $ANSAGE 
