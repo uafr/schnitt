@@ -1,12 +1,26 @@
 #!/bin/bash
 # Podcast für MP3-Player aufbereiten und löschen
-# 2013-01-03 WB
+# 2013-06-11 WB
+# http://uafr.freeshell.org/schnitt/
+
+##
+## Defaulteinstellungen. Konfiguration hier anpassen.
+##
 
 # das Zielverzeichnis auf dem MP3-Player
 PLAYER=/media/MP3_WB/Podcast
 #PLAYER=/tmp/media
 
-##
+# Quelle nach Schnitt löschen (auch mit --keep/--del als erstem
+# Parameter per Kommandozeile umschaltbar)
+KEEP=false
+
+# Schneiden erst wenn länger als $LENGTH Minuten
+LENGT=8
+
+### Ende der Konfiguration ####
+
+# Farben
     RED=`echo -e '\033[31m'`
   GREEN=`echo -e '\033[32m'`  
 DYELLOW=`echo -e '\033[33m'`  
@@ -20,28 +34,45 @@ DYELLOW=`echo -e '\033[33m'`
 
 ANSAGE=`mktemp --suffix=.wav`
 
-if [ ! -d $PLAYER ] ; then
+# Kommandozeile auswerten 
+if [ x"$1" = x"--keep" ] ; then
+    KEEP=true
+    shift
+elif [ x"$1" = x"--del" ] ; then
+    KEEP=false
+    shift
+fi
+
+# Prüfen, ob Player gemountet ist
+if [ ! -d "$PLAYER" ] ; then
     echo ${RED}ABBRUCH: Verzeichnis $PLAYER nicht gefunden.${NORMAL}
     exit -1
 fi
 
+# Info
+if $KEEP ; then
+    echo ${GREEN}Quelldateien nicht löschen.${NORMAL}
+fi
 
-for file in $* ; do
-    if [ -r $file ] ; then
-        name=`basename $file .mp3`  
+# Dateien aufbereiten
+for file in "$@" ; do
+    if [ -r "$file" ] ; then
+        name="`basename "$file" .mp3`"
         # genügend Platz vorhanden?
-        KBISFREE=`df -k $PLAYER |grep / |awk '{print $4 }'`
+        KBISFREE=`df -k "$PLAYER" |grep / |awk '{print $4 }'`
         #Was brauchen wir? ca +100k für die Ansage
         let "FILESIZE = $(stat -c%s "$file") / 1024"
         let "FILESIZE += 100"
 
+        folder="$PLAYER/${name// /_}"
         if [ $KBISFREE -lt $FILESIZE ] ; then
             echo ${RED}WARNUNG: Nicht genügend Platz für $file.${NORMAL}
+        elif [ -e  "$folder" ] ; then
+            echo ${RED}WARNUNG: Ordner $folder bereits vorhanden.${NORMAL}
         else
-            folder=$PLAYER/$name 
-            mkdir $folder
+            mkdir "$folder"
 
-            if [ ! -d $folder ] ; then
+            if [ ! -d "$folder" ] ; then
                 echo ${RED}ABBRUCH: Verzeichnis $folder nicht angelegt.${NORMAL}
                 exit -1
             fi
@@ -50,19 +81,22 @@ for file in $* ; do
             datum=`LC_TIME=de_DE.UTF8 date -r "$file" +"%A, %d. %B %Y"`
             name1=${name//_/ }
             title=`mid3v2 -l $file | grep -e TIT2 | cut -d= -f2-`
-            minuten=`mp3info -p "%m" $file`
+            minuten=`mp3info -p "%m" "$file"`
             dauer="Dauer etwa $minuten Minuten."
             echo ${name1//-/ } . vom $datum . $title . $dauer | \
              espeak --stdin -v german-mbrola-5  -s 100 -w $ANSAGE 2>>/dev/null
-            lame --silent $ANSAGE $folder/$name-000.mp3
+            lame --silent $ANSAGE "$folder/$name-000.mp3"
 
-            # Schneiden erst wenn länger als 8 Minuten
-            if [[ $minuten -gt 8 ]] ; then
-                # Split und löschen
-                mp3splt -1 -t 3.2 -o @f-@n -d $folder $file \
-                 && rm $file
+            if [[ $minuten -gt $LENGTH ]] ; then
+                # Split und ggf. löschen
+                mp3splt -1 -t 3.2 -o @f-@n -d "$folder" "$file" \
+                 && ( if ! $KEEP ; then rm "$file" ; fi )
             else
-                mv $file $folder 
+                if $KEEP ; then
+                    cp -v "$file" "$folder" 
+                else
+                    mv -v "$file" "$folder" 
+                fi
             fi
         fi
     else
@@ -73,5 +107,5 @@ rm $ANSAGE
 
 # freien Platz und verbleibende Dateien anzeigen
 echo
-df -h $PLAYER
+df -h "$PLAYER"
 ls -sh $* 2>/dev/null
