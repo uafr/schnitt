@@ -1,6 +1,6 @@
 #!/bin/bash
 # Podcast für MP3-Player aufbereiten und löschen
-# 2013-06-11 WB
+# 2015-03-05 WB
 # http://uafr.freeshell.org/schnitt/
 
 ##
@@ -16,7 +16,7 @@ PLAYER=/media/MP3_WB/Podcast
 KEEP=false
 
 # Schneiden erst wenn länger als $LENGTH Minuten
-LENGT=8
+LENGTH=8
 
 ### Ende der Konfiguration ####
 
