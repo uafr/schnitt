@@ -1,10 +1,11 @@
 #!/bin/bash
 # Podcast für MP3-Player aufbereiten und löschen
-# 2015-03-05 WB
+# 2016-08-30 WB
 # http://uafr.freeshell.org/schnitt/
 
 ##
-## Defaulteinstellungen. Konfiguration hier anpassen.
+## Defaulteinstellungen. Konfiguration hier oder in
+## ~/.config/schnitt.conf anpassen.
 ##
 
 # das Zielverzeichnis auf dem MP3-Player
@@ -18,23 +19,26 @@ KEEP=false
 # Schneiden erst wenn länger als $LENGTH Minuten
 LENGTH=8
 
+# Lokale Konfigurationsdatei lesen
+if [ -r ~/.config/schnitt.conf ] ; then
+    . ~/.config/schnitt.conf
+fi
+
 ### Ende der Konfiguration ####
 
 # Farben
     RED=`echo -e '\033[31m'`
-  GREEN=`echo -e '\033[32m'`  
-DYELLOW=`echo -e '\033[33m'`  
-   BLUE=`echo -e '\033[34m'`  
+  GREEN=`echo -e '\033[32m'`
+DYELLOW=`echo -e '\033[33m'`
+   BLUE=`echo -e '\033[34m'`
   GBLUE=`echo -e '\033[35m'`
  NORMAL=`echo -e '\033[0m'`
- 
+
   LGREY=`echo -e '\033[37m'`
   DGREY=`echo -e '\033[1;30m'`
 ##
 
-ANSAGE=`mktemp --suffix=.wav`
-
-# Kommandozeile auswerten 
+# Kommandozeile auswerten
 if [ x"$1" = x"--keep" ] ; then
     KEEP=true
     shift
@@ -48,6 +52,8 @@ if [ ! -d "$PLAYER" ] ; then
     echo ${RED}ABBRUCH: Verzeichnis $PLAYER nicht gefunden.${NORMAL}
     exit -1
 fi
+
+ANSAGE=`mktemp --suffix=.wav`
 
 # Info
 if $KEEP ; then
@@ -74,13 +80,14 @@ for file in "$@" ; do
 
             if [ ! -d "$folder" ] ; then
                 echo ${RED}ABBRUCH: Verzeichnis $folder nicht angelegt.${NORMAL}
+                rm $ANSAGE
                 exit -1
             fi
 
             # Ansage
             datum=`LC_TIME=de_DE.UTF8 date -r "$file" +"%A, %d. %B %Y"`
             name1=${name//_/ }
-            title=`mid3v2 -l $file | grep -e TIT2 | cut -d= -f2-`
+            title=`mid3v2 -l $file | grep -e ^TIT2 | cut -d= -f2-`
             minuten=`mp3info -p "%m" "$file"`
             dauer="Dauer etwa $minuten Minuten."
             echo ${name1//-/ } . vom $datum . $title . $dauer | \
@@ -93,9 +100,9 @@ for file in "$@" ; do
                  && ( if ! $KEEP ; then rm "$file" ; fi )
             else
                 if $KEEP ; then
-                    cp -v "$file" "$folder" 
+                    cp -v "$file" "$folder"
                 else
-                    mv -v "$file" "$folder" 
+                    mv -v "$file" "$folder"
                 fi
             fi
         fi
@@ -103,7 +110,7 @@ for file in "$@" ; do
             echo ${RED}WARNUNG: $file nicht lesbar.${NORMAL}
     fi
 done
-rm $ANSAGE 
+rm $ANSAGE
 
 # freien Platz und verbleibende Dateien anzeigen
 echo
