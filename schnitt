@@ -1,6 +1,6 @@
 #!/bin/bash
 # Podcast für MP3-Player aufbereiten und löschen
-# 2016-08-30 WB
+# 2016-09-16 WB
 # http://uafr.freeshell.org/schnitt/
 
 ##
@@ -11,6 +11,10 @@
 # das Zielverzeichnis auf dem MP3-Player
 PLAYER=/media/MP3_WB/Podcast
 #PLAYER=/tmp/media
+
+# Logfile aller aufbereiteten Dateien
+LOGFILE=~/Documents/schnittlog.txt
+#LOGFILE=
 
 # Quelle nach Schnitt löschen (auch mit --keep/--del als erstem
 # Parameter per Kommandozeile umschaltbar)
@@ -105,9 +109,13 @@ for file in "$@" ; do
                     mv -v "$file" "$folder"
                 fi
             fi
+            # Logfile
+            if [ -n "$LOGFILE" ] ; then
+                echo `date +"%Y-%m-%d %H:%M"` $name \"$title\" ${minuten}min >> $LOGFILE
+            fi
         fi
     else
-            echo ${RED}WARNUNG: $file nicht lesbar.${NORMAL}
+        echo ${RED}WARNUNG: $file nicht lesbar.${NORMAL}
     fi
 done
 rm $ANSAGE
